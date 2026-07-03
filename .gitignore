@@ -1,0 +1,41 @@
+# Browser profiles and cookies
+xhs_profile/
+wechat_profile/
+xhs_cookies.json
+wechat_cookies.json
+
+# Output files
+xhs-pipeline/output/
+wechat-pipeline/output/
+
+# Python
+__pycache__/
+*.pyc
+.venv/
+venv/
+
+# IDE
+.idea/
+.vscode/
+*.swp
+*.swo
+
+# Secrets (override config with local values)
+config_local.py
+config_local.pyc
+
+# Debug screenshots and test files
+*.png
+*.jpg
+test_*.html
+debug_*.html
+*_debug_*
+*_state.json
+
+# OS
+.DS_Store
+Thumbs.db
+
+# Logs
+*.log
+logs/
