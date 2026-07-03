@@ -189,7 +189,7 @@ ok = run_step("wechat_pipeline",
 
 ```bash
 # 1. 克隆仓库
-git clone https://github.com/yufeng2046/xhs-wechat-pipeline.git
+git clone https://github.com/yufeng2046-spec/xhs-wechat-pipeline.git
 cd xhs-wechat-pipeline
 
 # 2. 安装依赖
