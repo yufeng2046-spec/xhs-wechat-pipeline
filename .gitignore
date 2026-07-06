@@ -1,6 +1,8 @@
 # Browser profiles and cookies
 xhs_profile/
 wechat_profile/
+xhs_profile_manual/
+wechat_profile_manual/
 xhs_cookies.json
 wechat_cookies.json
 
