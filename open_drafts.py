@@ -19,8 +19,8 @@ import sys
 from pathlib import Path
 
 WORKSPACE = Path(__file__).resolve().parent
-XHS_PROFILE = str(WORKSPACE / "xhs-pipeline" / "xhs_profile_manual")
-WECHAT_PROFILE = str(WORKSPACE / "wechat-pipeline" / "wechat_profile_manual")
+XHS_PROFILE = str(WORKSPACE / "xhs-pipeline" / "xhs_profile")
+WECHAT_PROFILE = str(WORKSPACE / "wechat-pipeline" / "wechat_profile")
 
 XHS_URL = "https://creator.xiaohongshu.com/"
 WECHAT_URL = "https://mp.weixin.qq.com/"
