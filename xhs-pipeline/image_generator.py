@@ -9,6 +9,7 @@ Multi-template system: cover, point, quote, summary card types.
 import asyncio
 import base64
 import json
+import random
 from pathlib import Path
 from typing import Optional
 
@@ -87,6 +88,28 @@ def pick_theme(keywords: str) -> dict:
     return THEMES["cream"]
 
 
+# ── Footer rotation — avoid identical footers across posts ──────────────────
+
+_FOOTERS = [
+    "房产新媒体获客 · 每日干货",
+    "于老师 · 房产新媒体实战笔记",
+    "房产获客方法论 · 实战验证",
+    "6年房产运营经验 · 每日分享",
+    "新媒体获客 · 从0到1实战",
+]
+
+
+def _random_footer() -> str:
+    return random.choice(_FOOTERS)
+
+
+# ── Layout variants — adds visual entropy to avoid template detection ───────
+
+def _layout_variant() -> int:
+    """Return 0, 1, or 2 to pick a layout variant for a card."""
+    return random.randint(0, 2)
+
+
 # ═══════════════════════════════════════════════════════════════════════════════
 # HTML template builder
 # ═══════════════════════════════════════════════════════════════════════════════
@@ -147,9 +170,130 @@ def _escape(text: str) -> str:
 def build_cover(title: str, subtitle: str, hero_stat: str = "",
                 kicker: str = "", pre_badge: str = "",
                 tags: Optional[list] = None, theme_name: str = "cream",
-                footer: str = "房产新媒体获客 · 每日干货") -> str:
+                footer: Optional[str] = None,
+                variant: Optional[int] = None) -> str:
     t = pick_theme(theme_name)
+    if variant is None:
+        variant = _layout_variant()
+    if footer is None:
+        footer = _random_footer()
 
+    # Variant A: hero + title stacked (original)
+    # Variant B: hero as watermark, title emphasized
+    # Variant C: hero right-aligned, title left
+
+    if variant == 1:
+        # Variant B: hero as large watermark behind title
+        css = f"""
+  .cover-page {{
+    display: flex; flex-direction: column; justify-content: center;
+    height: 100%; padding: 80px 100px 100px; position: relative;
+  }}
+  .cover-hero-watermark {{
+    position: absolute; top: 20px; right: 20px;
+    font-size: 220px; font-weight: 900; line-height: 1;
+    color: {t['accent']}; opacity: 0.07; pointer-events: none;
+    letter-spacing: -6px;
+  }}
+  .cover-pre-badge {{ margin-bottom: 40px; position: relative; z-index: 1; }}
+  .cover-title {{
+    font-size: 68px; font-weight: 900; line-height: 1.3; letter-spacing: 3px;
+    color: {t['text_primary']}; margin-bottom: 28px; max-width: 880px;
+    position: relative; z-index: 1;
+  }}
+  .cover-hero-inline {{
+    display: inline; font-size: 68px; font-weight: 900;
+    color: {t['accent']}; letter-spacing: -2px;
+  }}
+  .cover-divider {{
+    width: 80px; height: 5px; border-radius: 3px;
+    background: {t['accent']}; margin-bottom: 32px; opacity: 0.7;
+    position: relative; z-index: 1;
+  }}
+  .cover-subtitle {{
+    font-size: 37px; font-weight: 400; line-height: 1.7;
+    color: {t['text_secondary']}; max-width: 820px;
+    position: relative; z-index: 1;
+  }}
+  .cover-tags {{ margin-top: 48px; display: flex; gap: 16px; flex-wrap: wrap; position: relative; z-index: 1; }}
+"""
+        hero_html = (
+            f'<div class="cover-hero-watermark">{_escape(hero_stat)}</div>'
+        ) if hero_stat else ""
+
+        body = f"""  {hero_html}
+  <div class="cover-page">
+    {f'<div class="cover-pre-badge"><div class="badge">{_escape(pre_badge)}</div></div>' if pre_badge else ''}
+    <div class="cover-title">
+      {f'<span class="cover-hero-inline">{_escape(hero_stat)}</span> ' if hero_stat else ''}{_escape(title)}
+    </div>
+    <div class="cover-divider"></div>
+    <div class="cover-subtitle">{_escape(subtitle)}</div>
+    {f'''  <div class="cover-tags">{" ".join(f'<span class="tag">{_escape(t)}</span>' for t in tags[:4])}</div>''' if tags else ''}
+  </div>
+  <div class="footer-brand">{_escape(footer)}</div>"""
+
+        return _build_page(t, "cover", css, body)
+
+    elif variant == 2:
+        # Variant C: two-column, hero on right
+        css = f"""
+  .cover-page {{
+    display: flex; flex-direction: row; align-items: center;
+    height: 100%; padding: 80px 80px 100px; position: relative; gap: 40px;
+  }}
+  .cover-left {{
+    flex: 1; display: flex; flex-direction: column; justify-content: center;
+  }}
+  .cover-right {{
+    display: flex; flex-direction: column; align-items: center; justify-content: center;
+    flex-shrink: 0;
+  }}
+  .cover-hero-big {{
+    font-size: 180px; font-weight: 900; line-height: 1; letter-spacing: -4px;
+    color: {t['accent']};
+  }}
+  .cover-kicker-side {{
+    font-size: 32px; font-weight: 600; color: {t['text_primary']};
+    letter-spacing: 2px; margin-top: 8px; text-align: center;
+  }}
+  .cover-pre-badge {{ margin-bottom: 32px; }}
+  .cover-title {{
+    font-size: 60px; font-weight: 900; line-height: 1.3; letter-spacing: 3px;
+    color: {t['text_primary']}; margin-bottom: 24px;
+  }}
+  .cover-divider {{
+    width: 60px; height: 4px; border-radius: 2px;
+    background: {t['accent']}; margin-bottom: 28px; opacity: 0.7;
+  }}
+  .cover-subtitle {{
+    font-size: 34px; font-weight: 400; line-height: 1.65;
+    color: {t['text_secondary']};
+  }}
+  .cover-tags {{ margin-top: 40px; display: flex; gap: 14px; flex-wrap: wrap; }}
+"""
+        hero_html = ""
+        if hero_stat:
+            hero_html = f"""  <div class="cover-right">
+      <div class="cover-hero-big">{_escape(hero_stat)}</div>
+      {f'<div class="cover-kicker-side">{_escape(kicker)}</div>' if kicker else ''}
+    </div>"""
+
+        body = f"""  <div class="cover-page">
+    <div class="cover-left">
+      {f'<div class="cover-pre-badge"><div class="badge">{_escape(pre_badge)}</div></div>' if pre_badge else ''}
+      <div class="cover-title">{_escape(title)}</div>
+      <div class="cover-divider"></div>
+      <div class="cover-subtitle">{_escape(subtitle)}</div>
+      {f'''    <div class="cover-tags">{" ".join(f'<span class="tag">{_escape(t)}</span>' for t in tags[:4])}</div>''' if tags else ''}
+    </div>
+    {hero_html}
+  </div>
+  <div class="footer-brand">{_escape(footer)}</div>"""
+
+        return _build_page(t, "cover", css, body)
+
+    # Variant A: original hero stack layout
     css = f"""
   .cover-page {{
     display: flex; flex-direction: column; justify-content: center;
@@ -204,8 +348,16 @@ def build_cover(title: str, subtitle: str, hero_stat: str = "",
         chips = "\n    ".join(f'<span class="tag">{_escape(t)}</span>' for t in tags[:4])
         tags_html = f'  <div class="cover-tags">{chips}\n  </div>'
 
-    body = f"""  <div class="cover-accent-dot" style="top:-140px;right:-80px;width:520px;height:520px;"></div>
-  <div class="cover-accent-dot" style="bottom:-80px;left:-60px;width:340px;height:340px;"></div>
+    # Randomize decorative dot positions
+    dot_positions = [
+        ('top:-140px;right:-80px;width:520px;height:520px;', 'bottom:-80px;left:-60px;width:340px;height:340px;'),
+        ('top:-100px;left:-100px;width:400px;height:400px;', 'bottom:-60px;right:-60px;width:300px;height:300px;'),
+        ('top:-120px;right:-40px;width:450px;height:450px;', 'bottom:-100px;left:-80px;width:380px;height:380px;'),
+    ]
+    dots = random.choice(dot_positions)
+
+    body = f"""  <div class="cover-accent-dot" style="{dots[0]}"></div>
+  <div class="cover-accent-dot" style="{dots[1]}"></div>
   <div class="cover-page">
     {badge_html}
     {hero_html}
@@ -226,10 +378,54 @@ def build_cover(title: str, subtitle: str, hero_stat: str = "",
 def build_point(icon: str, heading: str, body: str,
                 section_num: str = "", highlight_label: str = "",
                 highlight_text: str = "", theme_name: str = "cream",
-                footer: str = "房产新媒体获客 · 每日干货") -> str:
+                footer: Optional[str] = None,
+                variant: Optional[int] = None) -> str:
     t = pick_theme(theme_name)
+    if variant is None:
+        variant = _layout_variant()
+    if footer is None:
+        footer = _random_footer()
 
-    css = f"""
+    if variant == 1:
+        # Variant B: icon as large watermark, text emphasized
+        css = f"""
+  .point-page {{
+    display: flex; flex-direction: column;
+    height: 100%; padding: 80px 100px 70px; position: relative;
+  }}
+  .point-icon-ghost {{
+    position: absolute; top: 30px; right: 40px; font-size: 200px;
+    opacity: 0.06; pointer-events: none; line-height: 1;
+  }}
+  .point-section-num {{
+    font-size: 30px; font-weight: 700; color: {t['text_muted']};
+    letter-spacing: 2px; margin-bottom: 24px;
+  }}
+  .point-heading {{
+    font-size: 55px; font-weight: 800; line-height: 1.4; letter-spacing: 2px;
+    color: {t['text_primary']}; margin-bottom: 32px; max-width: 860px;
+    position: relative; z-index: 1;
+  }}
+  .point-body {{
+    font-size: 35px; font-weight: 400; line-height: 1.85; letter-spacing: 1px;
+    color: {t['text_secondary']}; max-width: 860px; flex: 1;
+    position: relative; z-index: 1;
+  }}
+  .point-hl-box {{
+    margin-top: 36px; padding: 28px 36px; border-radius: 16px;
+    background: {t['accent_light']}; border-left: 4px solid {t['accent']};
+    position: relative; z-index: 1;
+  }}
+  .point-hl-label {{
+    font-size: 25px; font-weight: 700; color: {t['accent']}; letter-spacing: 2px; margin-bottom: 8px;
+  }}
+  .point-hl-text {{
+    font-size: 32px; line-height: 1.65; color: {t['text_secondary']};
+  }}
+"""
+    else:
+        # Variant A: icon + heading + body (original)
+        css = f"""
   .point-page {{
     display: flex; flex-direction: column;
     height: 100%; padding: 80px 100px 70px; position: relative;
@@ -275,7 +471,17 @@ def build_point(icon: str, heading: str, body: str,
     <div class="point-hl-text">{_escape(highlight_text)}</div>
   </div>"""
 
-    body_html = f"""  <div class="point-page">
+    if variant == 1:
+        body_html = f"""  <div class="point-page">
+    <div class="point-icon-ghost">{icon}</div>
+    <div class="point-section-num">{_escape(section_num)}</div>
+    <div class="point-heading">{_escape(heading)}</div>
+    <div class="point-body">{_escape(body)}</div>
+    {hl_html}
+  </div>
+  <div class="footer-brand">{_escape(footer)}</div>"""
+    else:
+        body_html = f"""  <div class="point-page">
     <div class="point-top-row">
       <div class="point-icon">{icon}</div>
       <div class="point-section-num">{_escape(section_num)}</div>
@@ -294,8 +500,18 @@ def build_point(icon: str, heading: str, body: str,
 # ═══════════════════════════════════════════════════════════════════════════════
 
 def build_quote(quote: str, attribution: str = "", theme_name: str = "cream",
-                footer: str = "房产新媒体获客 · 每日干货") -> str:
+                footer: Optional[str] = None) -> str:
     t = pick_theme(theme_name)
+    if footer is None:
+        footer = _random_footer()
+
+    # Vary decorative dot position
+    deco_positions = [
+        'top:-100px;left:-60px;width:460px;height:460px;',
+        'top:-80px;right:-80px;width:400px;height:400px;',
+        'bottom:-60px;left:-40px;width:360px;height:360px;',
+    ]
+    deco = random.choice(deco_positions)
 
     css = f"""
   .quote-page {{
@@ -327,7 +543,7 @@ def build_quote(quote: str, attribution: str = "", theme_name: str = "cream",
   }}
 """
 
-    body_html = f"""  <div class="quote-deco" style="top:-100px;left:-60px;width:460px;height:460px;"></div>
+    body_html = f"""  <div class="quote-deco" style="{deco}"></div>
   <div class="quote-page">
     <div class="quote-mark">&#x201C;</div>
     <div class="quote-text">{_escape(quote)}</div>
@@ -345,12 +561,58 @@ def build_quote(quote: str, attribution: str = "", theme_name: str = "cream",
 # Card type 4: SUMMARY — checklist + CTA
 # ═══════════════════════════════════════════════════════════════════════════════
 
-def build_summary(title: str, checklist: list[str], cta: str = "收藏笔记 · 立即行动",
+def build_summary(title: str, checklist: list[str], cta: str = "今天就可以试试",
                   label: str = "今日行动清单", theme_name: str = "cream",
-                  footer: str = "房产新媒体获客 · 每日干货") -> str:
+                  footer: Optional[str] = None,
+                  variant: Optional[int] = None) -> str:
     t = pick_theme(theme_name)
+    if variant is None:
+        variant = _layout_variant()
+    if footer is None:
+        footer = _random_footer()
 
-    css = f"""
+    if variant == 1:
+        # Variant B: numbered steps with arrow markers
+        css = f"""
+  .summary-page {{
+    display: flex; flex-direction: column; justify-content: center;
+    height: 100%; padding: 80px 100px 100px; position: relative;
+  }}
+  .summary-label {{ margin-bottom: 36px; }}
+  .summary-title {{
+    font-size: 51px; font-weight: 800; line-height: 1.35; letter-spacing: 2px;
+    color: {t['text_primary']}; margin-bottom: 50px; max-width: 860px;
+  }}
+  .summary-list {{ display: flex; flex-direction: column; gap: 28px; margin-bottom: 52px; }}
+  .summary-item {{ display: flex; align-items: center; gap: 24px; }}
+  .summary-num {{
+    width: 44px; height: 44px; border-radius: 12px;
+    background: {t['accent']}; color: #fff; flex-shrink: 0;
+    display: flex; align-items: center; justify-content: center;
+    font-size: 24px; font-weight: 800;
+  }}
+  .summary-item-text {{
+    font-size: 35px; font-weight: 400; line-height: 1.5;
+    color: {t['text_secondary']};
+  }}
+  .summary-cta-box {{
+    padding: 32px 44px; border-radius: 20px;
+    background: {t['accent']}; text-align: center;
+  }}
+  .summary-cta-text {{
+    font-size: 37px; font-weight: 700; color: #fff; letter-spacing: 2px;
+  }}
+"""
+        items_html = "\n    ".join(
+            f"""<div class="summary-item">
+      <div class="summary-num">{i}</div>
+      <div class="summary-item-text">{_escape(item)}</div>
+    </div>"""
+            for i, item in enumerate(checklist[:5], 1)
+        )
+    else:
+        # Variant A: checklist with circle marks
+        css = f"""
   .summary-page {{
     display: flex; flex-direction: column; justify-content: center;
     height: 100%; padding: 80px 100px 100px; position: relative;
@@ -381,14 +643,13 @@ def build_summary(title: str, checklist: list[str], cta: str = "收藏笔记 · 
     font-size: 37px; font-weight: 700; color: {t['accent']}; letter-spacing: 2px;
   }}
 """
-
-    items_html = "\n    ".join(
-        f"""<div class="summary-item">
+        items_html = "\n    ".join(
+            f"""<div class="summary-item">
       <div class="summary-check">&#x2713;</div>
       <div class="summary-item-text">{_escape(item)}</div>
     </div>"""
-        for item in checklist[:5]
-    )
+            for item in checklist[:5]
+        )
 
     body_html = f"""  <div class="summary-page">
     <div class="summary-label"><div class="badge">{_escape(label)}</div></div>
@@ -410,7 +671,14 @@ def build_summary(title: str, checklist: list[str], cta: str = "收藏笔记 · 
 # ═══════════════════════════════════════════════════════════════════════════════
 
 def build_post_cards(post_data: dict) -> list[str]:
-    """Build ordered HTML strings for all cards in a post."""
+    """Build ordered HTML strings for all cards in a post.
+
+    Introduces visual entropy via:
+    - Randomized layout variants per card type
+    - Randomized card count (4-7 cards)
+    - Sometimes skipping quote to vary structure
+    - Randomized footer text per card
+    """
     cards = []
     kv = post_data.get("key_visual", "cream")
 
@@ -424,18 +692,26 @@ def build_post_cards(post_data: dict) -> list[str]:
         theme_name=kv,
     ))
 
-    for i, pt in enumerate(post_data.get("points", []), 1):
+    points = post_data.get("points", [])
+    total_points = len(points)
+    # Show at least 2 points, up to all available
+    min_points = min(2, total_points)
+    num_points = random.randint(min_points, total_points) if total_points > 2 else total_points
+
+    for i in range(num_points):
+        pt = points[i]
         cards.append(build_point(
             icon=pt.get("icon", "💡"),
             heading=pt.get("heading", ""),
             body=pt.get("body", ""),
-            section_num=pt.get("section_num", f"干货 {i}/{len(post_data.get('points', []))}"),
+            section_num=pt.get("section_num", f"干货 {i+1}/{num_points}"),
             highlight_label=pt.get("highlight_label", ""),
             highlight_text=pt.get("highlight", ""),
             theme_name=kv,
         ))
 
-    if post_data.get("quote"):
+    # Randomly include quote card (~70% chance)
+    if post_data.get("quote") and random.random() < 0.7:
         q = post_data["quote"]
         cards.append(build_quote(
             quote=q.get("text", ""),
@@ -443,12 +719,13 @@ def build_post_cards(post_data: dict) -> list[str]:
             theme_name=kv,
         ))
 
+    # Summary always included but with random variant
     if post_data.get("summary"):
         s = post_data["summary"]
         cards.append(build_summary(
             title=s.get("title", ""),
             checklist=s.get("checklist", []),
-            cta=s.get("cta", "收藏笔记 · 立即行动"),
+            cta=s.get("cta", "今天就可以试试"),
             theme_name=kv,
         ))
 

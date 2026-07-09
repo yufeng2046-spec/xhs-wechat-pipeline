@@ -8,6 +8,7 @@ Content Transformer — parse video scripts and transform into XHS 图文 posts.
 """
 
 import json
+import random
 import re
 from dataclasses import dataclass, field
 from pathlib import Path
@@ -187,7 +188,23 @@ def select_best_scripts(scripts: list[Script]) -> list[Script]:
 
     scored = [(s["index"], sum(s["scores"].values())) for s in scores]
     scored.sort(key=lambda x: x[1], reverse=True)
-    selected_indices = {idx for idx, _ in scored[:DAILY_SCRIPT_LIMIT]}
+
+    # Weighted random selection from top 4 to avoid always picking #1-2
+    # Top-ranked gets higher weight but not guaranteed
+    top_n = scored[:min(4, len(scored))]
+    weights = [4, 3, 2, 1][:len(top_n)]  # Decreasing weights
+    # Normalize: first gets ~40%, second ~30%, third ~20%, fourth ~10%
+    total_w = sum(weights)
+    weights = [w / total_w for w in weights]
+
+    picked = random.choices(top_n, weights=weights, k=min(DAILY_SCRIPT_LIMIT, len(top_n)))
+    selected_indices = {idx for idx, _ in picked}
+
+    # If we somehow picked duplicates, fill from remaining
+    if len(selected_indices) < DAILY_SCRIPT_LIMIT:
+        remaining = [idx for idx, _ in top_n if idx not in selected_indices]
+        for idx in remaining[:DAILY_SCRIPT_LIMIT - len(selected_indices)]:
+            selected_indices.add(idx)
 
     return [s for s in scripts if s.index in selected_indices]
 
